@@ -25,7 +25,6 @@ type Config struct {
 	location    string
 	model       string
 	project     string
-	prompt      string
 	temperature float64
 	target      string
 	concurrent  int
@@ -50,7 +49,6 @@ func main() {
 		model:       os.Getenv("MODEL"),
 		project:     os.Getenv("PROJECT"),
 		target:      os.Getenv("TARGET"),
-		prompt:      os.Getenv("PROMPT"),
 		temperature: temperature,
 		concurrent:  concurrent,
 	}
