@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
@@ -90,26 +92,43 @@ func (c *Config) processImages(imageDir string) error {
 	g := new(errgroup.Group)
 	g.SetLimit(c.concurrent) // 限制并发数
 
+	// 添加错误计数
+	var errorCount int32
+
 	// 并发处理每张图片
 	for _, imagePath := range images {
+		imagePath := imagePath // 创建副本避免闭包问题
 		g.Go(func() error {
 			log.Printf("Processing %s", imagePath)
 			resp, err := c.analyzeImage(c.client, imagePath)
 			if err != nil {
+				atomic.AddInt32(&errorCount, 1)
 				log.Printf("Error processing %s: %v", imagePath, err)
-				return nil // 继续处理其他图片
+				return nil
 			}
 
 			// 写入结果
 			mu.Lock()
-			_, err = fmt.Fprintf(outputFile, "%s,%s,%s\n", imagePath, resp.Type, resp.Reason)
+			_, err = fmt.Fprintf(outputFile, "%s,%s,%s,%s\n",
+				time.Now().Format(time.RFC3339),
+
+				imagePath,
+				resp.Type,
+				resp.Reason)
 			mu.Unlock()
 
 			return err
 		})
 	}
 
-	return g.Wait() // 等待所有任务完成
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	// 输出统计信息
+	log.Printf("处理完成: 总计 %d 张图片, 失败 %d 张", len(images), errorCount)
+	log.Printf("Results written to %s", c.target)
+	return nil
 }
 
 func (c *Config) setupClient() *genai.Client {
