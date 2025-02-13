@@ -19,8 +19,8 @@ import (
 )
 
 type Result struct {
-	Type   string `json:"type"`
-	Reason string `json:"reason"`
+	Category string `json:"category"`
+	Reason   string `json:"reason"`
 }
 
 type Config struct {
@@ -106,14 +106,15 @@ func (c *Config) processImages(imageDir string) error {
 				log.Printf("Error processing %s: %v", imagePath, err)
 				return nil
 			}
+			imageName := filepath.Base(imagePath)
 
 			// 写入结果
 			mu.Lock()
 			_, err = fmt.Fprintf(outputFile, "%s,%s,%s,%s\n",
 				time.Now().Format(time.RFC3339),
 
-				imagePath,
-				resp.Type,
+				imageName,
+				resp.Category,
 				resp.Reason)
 			mu.Unlock()
 
@@ -179,27 +180,28 @@ func isImageFile(path string) bool {
 
 func getPrompt() string {
 	return `<Role>
-你是图片内容安全审核专家
+You are an expert in image content security review
 </Role>
 
 <Task>
-审核图片是否涉及哪个类别，并给出归属到该类别的原因
+Review whether the image is related to which category and give the reason why it is classified into that category
 
-候选类别:
-色情
-性暗示
-血腥
-爆炸
-政治
-武器
-恐怖
-广告logo
-辱骂
+Categoryies:
+Account Trade
+Scams and Advertisements
+Information Leakage
+Verbal Abuse and Threats
+Sexuality and Nudity
+Minor Safety
+Illegal Activities and Regulated Goods
+Religious and Political Content
+Personal Identifiable Information
+Violent Extremism
+Suicide and Self-Harm
 </Task>
 
 <requirement>
-输出为中文
-不包含上述类别则为安全
+If it does not contain the above category, category is pass
 </requirement>`
 }
 
@@ -209,7 +211,23 @@ func getConfig() *genai.GenerateContentConfig {
 		ResponseSchema: &genai.Schema{
 			Type: genai.TypeObject,
 			Properties: map[string]*genai.Schema{
-				"type":   {Type: genai.TypeString},
+				"category": {
+					Type: genai.TypeString,
+					Enum: []string{
+						"Account Trade",
+						"Scams and Advertisements",
+						"Information Leakage",
+						"Verbal Abuse and Threats",
+						"Sexuality and Nudity",
+						"Minor Safety",
+						"Illegal Activities and Regulated Goods",
+						"Religious and Political Content",
+						"Personal Identifiable Information",
+						"Violent Extremism",
+						"Suicide and Self-Harm",
+						"pass",
+					},
+				},
 				"reason": {Type: genai.TypeString},
 			},
 		},
