@@ -1,5 +1,6 @@
 bin
 output.csv
 .DS_Store
-alldata
+testdata/
 main
+.env
